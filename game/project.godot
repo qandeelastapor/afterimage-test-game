@@ -1,0 +1,56 @@
+; Engine configuration file.
+
+config_version=5
+
+[application]
+
+config/name="Afterimage"
+config/description="Your past hunts you."
+config/version="1.0.0"
+run/main_scene="res://scenes/splash.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://assets/icons/icon.png"
+config/quit_on_go_back=false
+boot_splash/bg_color=Color(0.027451, 0.023529, 0.0509804, 1)
+boot_splash/show_image=true
+boot_splash/image="res://assets/icons/splash_logo.png"
+boot_splash/fullsize=false
+boot_splash/use_filter=true
+boot_splash/minimum_display_time=0
+
+[autoload]
+
+Save="*res://src/autoload/save.gd"
+Session="*res://src/autoload/session.gd"
+Audio="*res://src/autoload/audio.gd"
+Haptics="*res://src/autoload/haptics.gd"
+Progress="*res://src/autoload/progress.gd"
+Transition="*res://src/autoload/transition.gd"
+Toast="*res://src/autoload/toast.gd"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/size/window_width_override=405
+window/size/window_height_override=820
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+window/energy_saving/keep_screen_on=true
+
+[gui]
+
+common/drop_mouse_on_gui_input_disabled=true
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=1
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.027451, 0.023529, 0.0509804, 1)

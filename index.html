@@ -1,0 +1,775 @@
+<title>Afterimage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@300;400;600&family=Michroma&display=swap">
+<style>
+/* Layout: one full-bleed canvas arena; a thin HUD rail on top; title and results set as a lower-left title card over the live arena.
+   Colour idea: the present is warm amber light, the past is its complementary afterimage (cold cyan to blue). */
+:root{
+  --void:#07060d;
+  --void-2:#13101f;
+  --rule:#2a2542;
+  --now:#ffb03b;
+  --now-hot:#fff3dc;
+  --echo:#3ad6e8;
+  --echo-deep:#5a6dff;
+  --ink:#eeeaf7;
+  --dim:#8d88a9;
+  --font-display:"Michroma","Eurostile","Microgramma","Arial Black",sans-serif;
+  --font-mono:"Martian Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--void);color:var(--ink);font-family:var(--font-mono);font-size:13px;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+.probe-top{position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top,0px);pointer-events:none}
+.probe-bot{position:fixed;bottom:0;left:0;width:0;height:env(safe-area-inset-bottom,0px);pointer-events:none}
+
+/* HUD rail */
+#hud{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 0;display:flex;align-items:flex-start;gap:22px;pointer-events:none;font-variant-numeric:tabular-nums}
+.stat{display:flex;flex-direction:column;gap:4px;min-width:0}
+.lbl{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.val{font-family:var(--font-display);font-size:19px;line-height:1.1;letter-spacing:.04em;white-space:nowrap}
+.val.now{color:var(--now)}
+.val.echo{color:var(--echo)}
+.spacer{flex:1}
+.hud-btns{display:flex;gap:8px}
+.hud-btn{pointer-events:auto;width:34px;height:34px;padding:0;border:1px solid var(--rule);border-radius:50%;background:color-mix(in srgb,var(--void) 70%,transparent);color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.hud-btn:hover{border-color:var(--dim)}
+.hud-btn:focus-visible{outline:2px solid var(--echo);outline-offset:2px}
+.hud-btn svg{width:14px;height:14px;fill:currentColor}
+@media (max-width:480px){
+  #hud{gap:16px}
+  .val{font-size:15px}
+  .stat.best{display:none}
+}
+
+/* Title cards */
+#scrim{position:fixed;inset:0;pointer-events:none;background:linear-gradient(to top,color-mix(in srgb,var(--void) 94%,transparent) 0%,color-mix(in srgb,var(--void) 72%,transparent) 40%,color-mix(in srgb,var(--void) 0%,transparent) 80%)}
+.card{position:fixed;left:0;right:0;bottom:0;max-width:640px;padding:0 16px calc(env(safe-area-inset-bottom,0px) + 30px);display:flex;flex-direction:column;align-items:flex-start;gap:16px}
+@media (min-width:760px){.card{left:max(16px,5vw);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 7vh)}}
+.eyebrow{margin:0;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--echo)}
+h1,h2{margin:0;font-family:var(--font-display);font-weight:400;line-height:1;color:var(--now-hot);text-wrap:balance}
+h1{font-size:clamp(28px,8.2vw,84px);letter-spacing:.06em;
+  text-shadow:-.08em 0 0 color-mix(in srgb,var(--echo) 62%,transparent),-.16em 0 0 color-mix(in srgb,var(--echo) 32%,transparent),-.24em 0 0 color-mix(in srgb,var(--echo-deep) 18%,transparent);
+  animation:linger 6s ease-in-out infinite}
+@keyframes linger{
+  0%,100%{text-shadow:-.08em 0 0 color-mix(in srgb,var(--echo) 62%,transparent),-.16em 0 0 color-mix(in srgb,var(--echo) 32%,transparent),-.24em 0 0 color-mix(in srgb,var(--echo-deep) 18%,transparent)}
+  50%{text-shadow:-.05em .02em 0 color-mix(in srgb,var(--echo) 62%,transparent),-.11em .03em 0 color-mix(in srgb,var(--echo) 32%,transparent),-.17em .02em 0 color-mix(in srgb,var(--echo-deep) 18%,transparent)}
+}
+h2{font-size:clamp(24px,5.4vw,46px);letter-spacing:.05em;text-shadow:-.08em 0 0 color-mix(in srgb,var(--echo) 50%,transparent),-.16em 0 0 color-mix(in srgb,var(--echo) 22%,transparent)}
+.tag{margin:0;font-size:15px;line-height:1.5;color:var(--ink)}
+.rules{margin:0;display:grid;grid-template-columns:auto 1fr;gap:9px 18px;font-size:12px;line-height:1.6;color:var(--dim);max-width:56ch}
+.rules dt{color:var(--ink);text-transform:uppercase;letter-spacing:.16em;font-size:10px;padding-top:2px}
+.rules dd{margin:0;min-width:0}
+.row{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.btn{font-family:var(--font-display);font-size:13px;letter-spacing:.14em;text-transform:uppercase;padding:15px 26px;border:0;border-radius:2px;background:var(--now);color:var(--void);cursor:pointer;box-shadow:-5px 0 0 color-mix(in srgb,var(--echo) 45%,transparent)}
+.btn:hover{background:var(--now-hot)}
+.btn:focus-visible{outline:2px solid var(--echo);outline-offset:3px}
+.hint{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.hint b{color:var(--ink);font-weight:400}
+.stats{margin:0;display:grid;grid-template-columns:repeat(4,auto);gap:6px 30px;font-variant-numeric:tabular-nums}
+.stats div{display:flex;flex-direction:column;gap:5px}
+.stats dt{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.stats dd{margin:0;font-family:var(--font-display);font-size:20px;color:var(--ink)}
+.stats dd.now{color:var(--now)}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,auto)}}
+@media (prefers-reduced-motion:reduce){h1{animation:none}}
+</style>
+
+<canvas id="cv" aria-label="Afterimage arena"></canvas>
+<div class="probe-top" id="probeTop"></div>
+<div class="probe-bot" id="probeBot"></div>
+
+<div id="hud" hidden>
+  <div class="stat"><span class="lbl">Score</span><span class="val now" id="score">0</span></div>
+  <div class="stat"><span class="lbl">Echoes</span><span class="val echo" id="echoes">0</span></div>
+  <div class="stat"><span class="lbl">Next echo</span><span class="val" id="next">3.0s</span></div>
+  <div class="spacer"></div>
+  <div class="stat best"><span class="lbl">Best</span><span class="val" id="best">0</span></div>
+  <div class="hud-btns">
+    <button class="hud-btn" id="muteBtn" type="button" aria-label="Mute sound" title="Sound (M)">
+      <svg viewBox="0 0 16 16" id="icoSound"><path d="M2 6h3l4-3v10l-4-3H2z"/><path d="M11 5.2a4 4 0 0 1 0 5.6l-.9-.9a2.7 2.7 0 0 0 0-3.8z"/></svg>
+      <svg viewBox="0 0 16 16" id="icoMute" hidden><path d="M2 6h3l4-3v10l-4-3H2z"/><path d="M10.6 6.1l.8-.8 1.6 1.6 1.6-1.6.8.8-1.6 1.6 1.6 1.6-.8.8-1.6-1.6-1.6 1.6-.8-.8 1.6-1.6z"/></svg>
+    </button>
+    <button class="hud-btn" id="pauseBtn" type="button" aria-label="Pause" title="Pause (P)">
+      <svg viewBox="0 0 16 16"><path d="M4 3h3v10H4zM9 3h3v10H9z"/></svg>
+    </button>
+  </div>
+</div>
+
+<div id="scrim"></div>
+
+<section class="card" id="title">
+  <p class="eyebrow">Survival · one arena · the only enemy is you</p>
+  <h1>AFTERIMAGE</h1>
+  <p class="tag">Your past hunts you.</p>
+  <dl class="rules">
+    <dt>Move</dt><dd>Drag anywhere to steer with a joystick. WASD or arrow keys on a keyboard.</dd>
+    <dt>Echoes</dt><dd>Every few seconds a new echo wakes up and walks your exact path, a fixed number of seconds behind you.</dd>
+    <dt>Survive</dt><dd>Keep moving. Stopping or doubling back walks you into your own past. Shards are worth 100.</dd>
+  </dl>
+  <div class="row">
+    <button class="btn" id="startBtn" type="button">Start run</button>
+    <span class="hint">Best <b id="bestTitle">0</b> · Space to start</span>
+  </div>
+</section>
+
+<section class="card" id="over" hidden>
+  <p class="eyebrow" id="overWhy">Caught by your echo from 2.4 s ago</p>
+  <h2 id="overHead">Run over</h2>
+  <dl class="stats">
+    <div><dt>Score</dt><dd class="now" id="oScore">0</dd></div>
+    <div><dt>Survived</dt><dd id="oTime">0.0s</dd></div>
+    <div><dt>Shards</dt><dd id="oShards">0</dd></div>
+    <div><dt>Echoes faced</dt><dd id="oEchoes">0</dd></div>
+  </dl>
+  <div class="row">
+    <button class="btn" id="againBtn" type="button">Run again</button>
+    <span class="hint">Best <b id="bestOver">0</b> · Space to retry</span>
+  </div>
+</section>
+
+<section class="card" id="paused" hidden>
+  <p class="eyebrow">Paused</p>
+  <h2>Holding still</h2>
+  <p class="tag">Your echoes are frozen too.</p>
+  <div class="row">
+    <button class="btn" id="resumeBtn" type="button">Resume</button>
+    <span class="hint">P or Esc to resume</span>
+  </div>
+</section>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const ui = {
+  hud:$('hud'), score:$('score'), echoes:$('echoes'), next:$('next'), best:$('best'),
+  scrim:$('scrim'), title:$('title'), over:$('over'), paused:$('paused'),
+  bestTitle:$('bestTitle'), bestOver:$('bestOver'), overWhy:$('overWhy'), overHead:$('overHead'),
+  oScore:$('oScore'), oTime:$('oTime'), oShards:$('oShards'), oEchoes:$('oEchoes'),
+  icoSound:$('icoSound'), icoMute:$('icoMute'), muteBtn:$('muteBtn')
+};
+
+const CAPTURE = location.hash === '#capture';
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---- Tuning ---------------------------------------------------------------
+const FPS = 60, STEP = 1 / FPS;
+const HIST = FPS * 16;            // 16 s of recorded positions
+const SHORT = 560;                // arena short side in world units
+const SPEED = 235;                // world units per second
+const ACCEL = 9;                  // velocity smoothing rate
+const PR = 9, ER = 10, SR = 11;   // player, echo, shard radii
+const GRAZE = 26;                 // near-miss band outside the hitbox
+const ECHO_ARM = 60;              // frames before a new echo can hit you
+const LAGS = [2.4, 1.3, 3.6, 0.9, 5.0, 1.9, 6.4, 2.9, 1.1, 4.3, 7.8, 1.6, 3.3, 9.5];
+const LAG_MIN = 0.9, LAG_MAX = 9.5;
+const spawnTime = k => 3 + k * 6.5;
+const JOY_R = 58;
+const TAU = Math.PI * 2;
+
+// ---- Colours from the CSS tokens -----------------------------------------
+const css = getComputedStyle(document.documentElement);
+const hex = v => { v = v.trim().replace('#', ''); if (v.length === 3) v = [...v].map(c => c + c).join(''); const n = parseInt(v, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const C = {};
+for (const k of ['void', 'void-2', 'rule', 'now', 'now-hot', 'echo', 'echo-deep', 'ink', 'dim']) C[k] = hex(css.getPropertyValue('--' + k));
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const mix = (a, b, t) => [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t));
+const FONT_MONO = '"Martian Mono", ui-monospace, Menlo, monospace';
+
+const glowCache = new Map();
+function glow(c) {
+  const key = c.join(',');
+  if (glowCache.has(key)) return glowCache.get(key);
+  const s = 128, cn = document.createElement('canvas'); cn.width = cn.height = s;
+  const g = cn.getContext('2d'), gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  gr.addColorStop(0, rgba(c, 0.85)); gr.addColorStop(0.22, rgba(c, 0.32)); gr.addColorStop(0.55, rgba(c, 0.08)); gr.addColorStop(1, rgba(c, 0));
+  g.fillStyle = gr; g.fillRect(0, 0, s, s);
+  glowCache.set(key, cn); return cn;
+}
+
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// ---- Storage --------------------------------------------------------------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('afterimage.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('afterimage.' + k, JSON.stringify(v)); } catch {} }
+};
+let best = store.get('best', 0) | 0;
+let muted = !!store.get('muted', false);
+
+// ---- Audio ----------------------------------------------------------------
+let actx = null;
+function ensureAudio() {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+  } catch {}
+}
+function tone(freq, dur, type, vol, slideTo, delay = 0) {
+  if (!actx || muted) return;
+  const t0 = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.03);
+}
+const sfx = {
+  shard() { tone(880, 0.09, 'sine', 0.07); tone(1320, 0.14, 'sine', 0.06, null, 0.06); },
+  graze() { tone(2400, 0.05, 'triangle', 0.025); },
+  spawn() { tone(240, 0.55, 'sawtooth', 0.03, 70); },
+  die() { tone(320, 0.7, 'sawtooth', 0.06, 40); tone(90, 0.9, 'sine', 0.1, 30); }
+};
+function play(name) { if (G && !G.demo && !G.capture) sfx[name](); }
+
+// ---- Layout ---------------------------------------------------------------
+let cw = 0, ch = 0, dpr = 1, bg = null, bgFresh = false;
+const view = { s: 1, ox: 0, oy: 0 };
+function arenaBox() {
+  const st = $('probeTop').offsetHeight, sb = $('probeBot').offsetHeight;
+  const top = st + 64, bottom = sb + 16, side = 16;
+  return { x: side, y: top, w: Math.max(120, cw - side * 2), h: Math.max(120, ch - top - bottom) };
+}
+function arenaDims() {
+  const b = arenaBox(), a = Math.max(0.5, Math.min(1.9, b.w / b.h));
+  return a >= 1 ? { W: Math.round(SHORT * a), H: SHORT } : { W: SHORT, H: Math.round(SHORT / a) };
+}
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cw = innerWidth; ch = innerHeight;
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+  if (G) fitView(G);
+}
+function fitView(g) {
+  const b = arenaBox(), s = Math.min(b.w / g.W, b.h / g.H);
+  view.s = s; view.ox = b.x + (b.w - g.W * s) / 2; view.oy = b.y + (b.h - g.H * s) / 2;
+  bg = buildBg(g); bgFresh = true;
+}
+function buildBg(g) {
+  const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height;
+  const b = c.getContext('2d');
+  b.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cx = view.ox + g.W * view.s / 2, cy = view.oy + g.H * view.s / 2;
+  const gr = b.createRadialGradient(cx, cy, 0, cx, cy, Math.max(cw, ch) * 0.75);
+  gr.addColorStop(0, rgba(C['void-2'], 1)); gr.addColorStop(1, rgba(C.void, 1));
+  b.fillStyle = gr; b.fillRect(0, 0, cw, ch);
+  b.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
+  const px = 1 / view.s;
+  b.fillStyle = rgba(C.rule, 0.9);
+  const step = 28, d = Math.max(1.6, 1.3 * px);
+  for (let x = step; x < g.W; x += step) for (let y = step; y < g.H; y += step) b.fillRect(x - d / 2, y - d / 2, d, d);
+  b.strokeStyle = rgba(C.rule, 1); b.lineWidth = 1.5 * px; b.strokeRect(0, 0, g.W, g.H);
+  // edge ticks every 28 units, longer every 140: a measured field
+  b.strokeStyle = rgba(C.rule, 1); b.lineWidth = 1 * px; b.beginPath();
+  for (let x = step; x < g.W; x += step) { const L = (x % 140 === 0 ? 9 : 4) * px; b.moveTo(x, 0); b.lineTo(x, L); b.moveTo(x, g.H); b.lineTo(x, g.H - L); }
+  for (let y = step; y < g.H; y += step) { const L = (y % 140 === 0 ? 9 : 4) * px; b.moveTo(0, y); b.lineTo(L, y); b.moveTo(g.W, y); b.lineTo(g.W - L, y); }
+  b.stroke();
+  b.strokeStyle = rgba(C.dim, 0.75); b.lineWidth = 1.5 * px;
+  const L = 20 * px, o = 6 * px; b.beginPath();
+  b.moveTo(-o, -o + L); b.lineTo(-o, -o); b.lineTo(-o + L, -o);
+  b.moveTo(g.W + o - L, -o); b.lineTo(g.W + o, -o); b.lineTo(g.W + o, -o + L);
+  b.moveTo(g.W + o, g.H + o - L); b.lineTo(g.W + o, g.H + o); b.lineTo(g.W + o - L, g.H + o);
+  b.moveTo(-o + L, g.H + o); b.lineTo(-o, g.H + o); b.lineTo(-o, g.H + o - L);
+  b.stroke();
+  return c;
+}
+
+// ---- Game state -----------------------------------------------------------
+let G = null;
+let state = 'title'; // title | play | paused | over
+
+function newGame(o = {}) {
+  const { W, H } = arenaDims();
+  const g = {
+    W, H, frame: 0, t: 0,
+    p: { x: W / 2, y: H / 2 + H * 0.1, vx: 0, vy: 0 },
+    hx: new Float32Array(HIST), hy: new Float32Array(HIST),
+    echoes: [], nextEcho: 0, shards: [],
+    score: 0, shardsGot: 0, grazes: 0,
+    alive: true, deathFrame: 0, deadT: 0, killer: null,
+    particles: [], floaters: [], shake: 0,
+    rng: mulberry32(o.seed ?? ((Math.random() * 2 ** 32) >>> 0)),
+    auto: !!o.auto, demo: !!o.demo, capture: !!o.capture,
+    input: { x: 0, y: 0 }
+  };
+  g.hx.fill(g.p.x); g.hy.fill(g.p.y);
+  spawnShard(g);
+  return g;
+}
+
+let HX = 0, HY = 0;
+function pos(g, f) {
+  const lim = g.alive ? g.frame : g.deathFrame;
+  if (f > lim) f = lim;
+  const i = ((f % HIST) + HIST) % HIST;
+  HX = g.hx[i]; HY = g.hy[i];
+}
+
+function lagColor(lag) { return mix(C.echo, C['echo-deep'], (lag - LAG_MIN) / (LAG_MAX - LAG_MIN)); }
+
+function spawnEcho(g) {
+  const k = g.nextEcho++, lag = LAGS[k], lagF = Math.round(lag * FPS), col = lagColor(lag);
+  const e = { k, lag, lagF, born: g.frame, col, rgb: col.join(','), glow: glow(col), grazeAt: 0 };
+  g.echoes.push(e);
+  pos(g, g.frame - lagF);
+  burst(g, HX, HY, col, 26, 140);
+  floater(g, HX, HY - 18, 'echo −' + lag.toFixed(1) + 's', col);
+  play('spawn');
+}
+
+function spawnShard(g) {
+  let x = 0, y = 0;
+  for (let i = 0; i < 40; i++) {
+    x = 50 + g.rng() * (g.W - 100); y = 50 + g.rng() * (g.H - 100);
+    if (Math.hypot(x - g.p.x, y - g.p.y) > 170) break;
+  }
+  g.shards.push({ x, y, born: g.frame, rot: g.rng() * TAU });
+}
+
+function burst(g, x, y, col, n, sp) {
+  for (let i = 0; i < n; i++) {
+    const a = g.rng() * TAU, v = sp * (0.3 + g.rng() * 0.9), life = 0.4 + g.rng() * 0.7;
+    g.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life, max: life, col: col.join(','), sz: 1.6 + g.rng() * 2.2 });
+  }
+  if (g.particles.length > 600) g.particles.splice(0, g.particles.length - 600);
+}
+function floater(g, x, y, text, col) { g.floaters.push({ x, y, text, col: col.join(','), life: 1.1, max: 1.1 }); }
+
+function die(g, e) {
+  g.alive = false; g.deathFrame = g.frame; g.killer = e;
+  g.shake = REDUCED ? 0 : 14;
+  burst(g, g.p.x, g.p.y, C.now, 70, 260);
+  burst(g, g.p.x, g.p.y, e.col, 40, 200);
+  burst(g, g.p.x, g.p.y, C['now-hot'], 20, 120);
+  play('die');
+}
+
+// ---- Input ----------------------------------------------------------------
+const keys = new Set();
+const joy = { active: false, id: null, bx: 0, by: 0, kx: 0, ky: 0 };
+function readInput() {
+  let x = 0, y = 0;
+  if (keys.has('arrowleft') || keys.has('a')) x -= 1;
+  if (keys.has('arrowright') || keys.has('d')) x += 1;
+  if (keys.has('arrowup') || keys.has('w')) y -= 1;
+  if (keys.has('arrowdown') || keys.has('s')) y += 1;
+  if (x || y) { const m = Math.hypot(x, y); x /= m; y /= m; }
+  if (joy.active) {
+    let dx = (joy.kx - joy.bx) / JOY_R, dy = (joy.ky - joy.by) / JOY_R;
+    const m = Math.hypot(dx, dy);
+    if (m < 0.12) { dx = dy = 0; } else if (m > 1) { dx /= m; dy /= m; }
+    x = dx; y = dy;
+  }
+  return { x, y };
+}
+
+// Autopilot: used by the title-screen demo and the screenshot capture.
+// Tries 20 headings, projects 0.7 s ahead and keeps clear of where each echo will be.
+function autopilot(g) {
+  const p = g.p, N = 20, LOOK = 10, DT = 0.07;
+  let target = null, td = 1e9;
+  for (const s of g.shards) { const d = Math.hypot(s.x - p.x, s.y - p.y); if (d < td) { td = d; target = s; } }
+  const sp = Math.hypot(p.vx, p.vy), ca = Math.atan2(p.vy, p.vx);
+  let bestS = -1e9, bx = 0, by = 0;
+  for (let i = 0; i < N; i++) {
+    const a = i / N * TAU, dx = Math.cos(a), dy = Math.sin(a);
+    let minClear = 1e9, wallPen = 0, x = p.x, y = p.y;
+    for (let j = 1; j <= LOOK; j++) {
+      x = p.x + dx * SPEED * DT * j; y = p.y + dy * SPEED * DT * j;
+      const w = Math.min(x, g.W - x, y, g.H - y);
+      if (w < PR + 34) wallPen += PR + 34 - w;
+      const fF = g.frame + Math.round(j * DT * FPS);
+      for (const e of g.echoes) {
+        const hf = fF - e.lagF;
+        let ex, ey;
+        if (hf <= g.frame) { pos(g, hf); ex = HX; ey = HY; }
+        else { const jj = (hf - g.frame) / (DT * FPS); ex = p.x + dx * SPEED * DT * jj; ey = p.y + dy * SPEED * DT * jj; }
+        const d = Math.hypot(x - ex, y - ey) - (PR + ER) - j * 1.5;
+        if (d < minClear) minClear = d;
+      }
+    }
+    let s = Math.min(minClear, 90) * 2 - wallPen * 1.6;
+    if (minClear < 0) s -= 600;
+    if (target) s -= Math.hypot(target.x - x, target.y - y) * 0.22;
+    if (sp > 20) s += Math.cos(a - ca) * 16;
+    if (s > bestS) { bestS = s; bx = dx; by = dy; }
+  }
+  return { x: bx, y: by };
+}
+
+// ---- Simulation -----------------------------------------------------------
+function step(g) {
+  const p = g.p;
+  if (g.alive) {
+    const inp = g.auto ? autopilot(g) : readInput();
+    g.input = inp;
+    const k = 1 - Math.exp(-ACCEL * STEP);
+    p.vx += (inp.x * SPEED - p.vx) * k; p.vy += (inp.y * SPEED - p.vy) * k;
+    p.x += p.vx * STEP; p.y += p.vy * STEP;
+    if (p.x < PR) { p.x = PR; p.vx = 0; } else if (p.x > g.W - PR) { p.x = g.W - PR; p.vx = 0; }
+    if (p.y < PR) { p.y = PR; p.vy = 0; } else if (p.y > g.H - PR) { p.y = g.H - PR; p.vy = 0; }
+  }
+  g.frame++; g.t = g.frame * STEP;
+
+  if (g.alive) {
+    const i = g.frame % HIST; g.hx[i] = p.x; g.hy[i] = p.y;
+    while (g.nextEcho < LAGS.length && g.t >= spawnTime(g.nextEcho)) spawnEcho(g);
+
+    for (let i = g.shards.length - 1; i >= 0; i--) {
+      const s = g.shards[i];
+      if (Math.hypot(s.x - p.x, s.y - p.y) < PR + SR + 4) {
+        g.shards.splice(i, 1); g.score += 100; g.shardsGot++;
+        burst(g, s.x, s.y, C['now-hot'], 18, 150);
+        floater(g, s.x, s.y - 16, '+100', C.now);
+        play('shard');
+      }
+    }
+    const want = 1 + (g.echoes.length >= 5) + (g.echoes.length >= 10);
+    while (g.shards.length < want) spawnShard(g);
+
+    for (const e of g.echoes) {
+      if (g.frame - e.born < ECHO_ARM) continue;
+      pos(g, g.frame - e.lagF);
+      const d = Math.hypot(HX - p.x, HY - p.y);
+      if (d < PR + ER - 2) { die(g, e); break; }
+      if (d < PR + ER + GRAZE && g.frame >= e.grazeAt) {
+        e.grazeAt = g.frame + 45; g.score += 25; g.grazes++;
+        floater(g, p.x, p.y - 22, 'graze +25', e.col);
+        play('graze');
+      }
+    }
+    if (g.alive) g.score += 10 * STEP;
+  } else {
+    g.deadT += STEP;
+  }
+
+  for (let i = g.particles.length - 1; i >= 0; i--) {
+    const q = g.particles[i];
+    q.x += q.vx * STEP; q.y += q.vy * STEP; q.vx *= 0.955; q.vy *= 0.955; q.life -= STEP;
+    if (q.life <= 0) g.particles.splice(i, 1);
+  }
+  for (let i = g.floaters.length - 1; i >= 0; i--) {
+    const f = g.floaters[i]; f.y -= 28 * STEP; f.life -= STEP;
+    if (f.life <= 0) g.floaters.splice(i, 1);
+  }
+  g.shake *= 0.88;
+}
+
+// ---- Rendering ------------------------------------------------------------
+function render(g) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+  // Partial clear: last frame lingers for a few frames, a literal afterimage.
+  ctx.globalAlpha = bgFresh || REDUCED ? 1 : 0.5;
+  if (bg) ctx.drawImage(bg, 0, 0);
+  ctx.globalAlpha = 1; bgFresh = false;
+
+  let shx = 0, shy = 0;
+  if (g.shake > 0.3) { shx = (Math.random() * 2 - 1) * g.shake; shy = (Math.random() * 2 - 1) * g.shake; }
+  const S = view.s * dpr;
+  ctx.setTransform(S, 0, 0, S, (view.ox + shx) * dpr, (view.oy + shy) * dpr);
+
+  drawTrail(g);
+  drawWarning(g);
+  ctx.globalCompositeOperation = 'lighter';
+  drawShards(g);
+  drawEchoes(g);
+  if (g.alive) drawPlayer(g);
+  for (const q of g.particles) {
+    ctx.fillStyle = `rgba(${q.col},${Math.max(0, q.life / q.max)})`;
+    ctx.fillRect(q.x - q.sz / 2, q.y - q.sz / 2, q.sz, q.sz);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawLabels(g, shx, shy);
+  drawJoystick(g);
+}
+
+function drawTrail(g) {
+  const head = g.alive ? g.frame : g.deathFrame;
+  let maxLag = 50;
+  for (const e of g.echoes) maxLag = Math.max(maxLag, e.lagF);
+  if (g.nextEcho < LAGS.length && spawnTime(g.nextEcho) - g.t < 2.5) maxLag = Math.max(maxLag, Math.round(LAGS[g.nextEcho] * FPS));
+  const span = Math.min(head, maxLag + 24, HIST - 2);
+  if (span < 2) return;
+  const fade = g.alive ? 1 : Math.max(0.35, 1 - g.deadT * 0.5);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const CH = 6;
+  for (let a = 0; a < span; a += CH) {
+    const b = Math.min(span, a + CH), age = a / span;
+    ctx.strokeStyle = rgba(mix(C.now, C.echo, Math.min(1, age * 1.7)), (0.5 * (1 - age) + 0.07) * fade);
+    ctx.lineWidth = 3.2 - age * 2.2;
+    ctx.beginPath();
+    pos(g, head - a); ctx.moveTo(HX, HY);
+    for (let f = a + 1; f <= b; f++) { pos(g, head - f); ctx.lineTo(HX, HY); }
+    ctx.stroke();
+  }
+}
+
+// Telegraph where the next echo will wake up, once that point is already on your trail.
+function drawWarning(g) {
+  if (!g.alive || g.nextEcho >= LAGS.length) return;
+  const lag = LAGS[g.nextEcho], sf = Math.round(spawnTime(g.nextEcho) * FPS), lagF = Math.round(lag * FPS);
+  const left = (sf - g.frame) / FPS;
+  if (left > 2.2 || sf - lagF > g.frame) return;
+  pos(g, sf - lagF);
+  const col = lagColor(lag), k = 1 - left / 2.2;
+  ctx.save();
+  ctx.setLineDash([4, 5]); ctx.lineDashOffset = -g.frame * 0.6;
+  ctx.strokeStyle = rgba(col, 0.25 + 0.6 * k * (0.6 + 0.4 * Math.sin(g.frame * 0.4)));
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(HX, HY, ER + 26 * (1 - k) + 4, 0, TAU); ctx.stroke();
+  ctx.restore();
+}
+
+function drawShards(g) {
+  for (const s of g.shards) {
+    const k = Math.min(1, (g.frame - s.born) / 24), pulse = 1 + 0.12 * Math.sin(g.frame * 0.12 + s.rot);
+    const r = SR * k * pulse, rot = s.rot + g.frame * 0.03, R = r * 4;
+    ctx.globalAlpha = 0.5; ctx.drawImage(glow(C.now), s.x - R, s.y - R, R * 2, R * 2); ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(rot);
+    ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r * 0.68, 0); ctx.lineTo(0, r); ctx.lineTo(-r * 0.68, 0); ctx.closePath();
+    ctx.fillStyle = rgba(C.now, 0.28); ctx.fill();
+    ctx.strokeStyle = rgba(C['now-hot'], 0.95); ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawEchoes(g) {
+  const pts = [];
+  for (const e of g.echoes) {
+    const f = g.frame - e.lagF;
+    const arm = Math.min(1, (g.frame - e.born) / ECHO_ARM);
+    const flick = arm < 1 ? 0.4 + 0.6 * Math.abs(Math.sin(g.frame * 0.45)) : 1;
+    ctx.lineCap = 'round'; ctx.lineWidth = ER * 1.2;
+    ctx.beginPath();
+    for (let j = 18; j >= 0; j -= 2) { pos(g, f - j); j === 18 ? ctx.moveTo(HX, HY) : ctx.lineTo(HX, HY); }
+    ctx.strokeStyle = `rgba(${e.rgb},${0.13 * arm * flick})`; ctx.stroke();
+    pos(g, f);
+    const x = HX, y = HY, R = ER * 4.6 * (0.6 + 0.4 * arm);
+    ctx.globalAlpha = 0.6 * flick; ctx.drawImage(e.glow, x - R, y - R, R * 2, R * 2); ctx.globalAlpha = 1;
+    ctx.lineWidth = 2; ctx.strokeStyle = `rgba(${e.rgb},${0.95 * flick})`;
+    ctx.beginPath(); ctx.arc(x, y, ER * (0.35 + 0.65 * arm), 0, TAU); ctx.stroke();
+    pts.push(x, y, arm);
+  }
+  // Hollow, negative cores: an echo is the absence of you.
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = rgba(C.void, 0.9);
+  for (let i = 0; i < pts.length; i += 3) { ctx.beginPath(); ctx.arc(pts[i], pts[i + 1], ER * 0.48 * pts[i + 2], 0, TAU); ctx.fill(); }
+  ctx.globalCompositeOperation = 'lighter';
+}
+
+function drawPlayer(g) {
+  const p = g.p, R = PR * 6.5;
+  ctx.globalAlpha = 0.85; ctx.drawImage(glow(C.now), p.x - R, p.y - R, R * 2, R * 2); ctx.globalAlpha = 1;
+  ctx.fillStyle = rgba(C['now-hot'], 1);
+  ctx.beginPath(); ctx.arc(p.x, p.y, PR * 0.62, 0, TAU); ctx.fill();
+  ctx.strokeStyle = rgba(C.now, 0.95); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(p.x, p.y, PR, 0, TAU); ctx.stroke();
+  const sp = Math.hypot(p.vx, p.vy);
+  if (sp > 30) {
+    const ux = p.vx / sp, uy = p.vy / sp;
+    ctx.fillStyle = rgba(C['now-hot'], 0.9);
+    ctx.beginPath(); ctx.arc(p.x + ux * (PR + 6), p.y + uy * (PR + 6), 1.8, 0, TAU); ctx.fill();
+  }
+}
+
+function drawLabels(g, shx, shy) {
+  const sx = x => view.ox + shx + x * view.s, sy = y => view.oy + shy + y * view.s;
+  ctx.textBaseline = 'middle';
+  ctx.font = `400 10px ${FONT_MONO}`;
+  for (const e of g.echoes) {
+    const arm = Math.min(1, (g.frame - e.born) / ECHO_ARM);
+    pos(g, g.frame - e.lagF);
+    ctx.fillStyle = `rgba(${e.rgb},${0.75 * arm})`;
+    ctx.fillText('−' + e.lag.toFixed(1) + 's', sx(HX) + ER * view.s + 7, sy(HY) - ER * view.s - 5);
+  }
+  if (g.alive && g.nextEcho < LAGS.length) {
+    const lag = LAGS[g.nextEcho], sf = Math.round(spawnTime(g.nextEcho) * FPS), lagF = Math.round(lag * FPS);
+    const left = (sf - g.frame) / FPS;
+    if (left <= 2.2 && sf - lagF <= g.frame) {
+      pos(g, sf - lagF);
+      ctx.fillStyle = rgba(lagColor(lag), 0.85);
+      ctx.fillText('wakes in ' + left.toFixed(1), sx(HX) + 22, sy(HY) + 20);
+    }
+  }
+  ctx.font = `600 11px ${FONT_MONO}`;
+  ctx.textAlign = 'center';
+  for (const f of g.floaters) {
+    ctx.fillStyle = `rgba(${f.col},${Math.min(1, f.life / f.max * 1.6)})`;
+    ctx.fillText(f.text, sx(f.x), sy(f.y));
+  }
+  ctx.textAlign = 'left';
+}
+
+function drawJoystick(g) {
+  let bx, by, kx, ky;
+  if (joy.active && state === 'play') { bx = joy.bx; by = joy.by; kx = joy.kx; ky = joy.ky; }
+  else if (g.capture && g.finalFrame && cw < 700) {
+    bx = cw * 0.5; by = ch - 120 - $('probeBot').offsetHeight;
+    kx = bx + g.input.x * JOY_R * 0.85; ky = by + g.input.y * JOY_R * 0.85;
+  } else return;
+  const dx = kx - bx, dy = ky - by, m = Math.hypot(dx, dy);
+  if (m > JOY_R) { kx = bx + dx / m * JOY_R; ky = by + dy / m * JOY_R; }
+  ctx.lineWidth = 1.5;
+  ctx.fillStyle = rgba(C.ink, 0.05); ctx.strokeStyle = rgba(C.ink, 0.28);
+  ctx.beginPath(); ctx.arc(bx, by, JOY_R, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = rgba(C.now, 0.4);
+  ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(kx, ky); ctx.stroke();
+  ctx.fillStyle = rgba(C.now, 0.22); ctx.strokeStyle = rgba(C.now, 0.85);
+  ctx.beginPath(); ctx.arc(kx, ky, 22, 0, TAU); ctx.fill(); ctx.stroke();
+}
+
+// ---- HUD and screens --------------------------------------------------------
+const hc = {};
+function setText(el, key, v) { if (hc[key] !== v) { hc[key] = v; el.textContent = v; } }
+function updateHud() {
+  if (!G) return;
+  setText(ui.score, 's', String(Math.floor(G.score)));
+  setText(ui.echoes, 'e', String(G.echoes.length));
+  let nx = '—';
+  if (G.nextEcho >= LAGS.length) nx = 'all awake';
+  else if (G.alive) nx = Math.max(0, spawnTime(G.nextEcho) - G.t).toFixed(1) + 's';
+  setText(ui.next, 'n', nx);
+  setText(ui.best, 'b', String(best));
+}
+function showOnly(card) {
+  for (const c of [ui.title, ui.over, ui.paused]) c.hidden = c !== card;
+  ui.scrim.hidden = !card;
+}
+function syncBest() { ui.bestTitle.textContent = best; ui.bestOver.textContent = best; }
+function syncMute() { ui.icoSound.hidden = muted; ui.icoMute.hidden = !muted; ui.muteBtn.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound'); }
+
+function startDemo() { G = newGame({ auto: true, demo: true }); fitView(G); }
+function startRun() {
+  ensureAudio();
+  joy.active = false; keys.clear();
+  G = newGame(); fitView(G);
+  state = 'play'; showOnly(null); ui.hud.hidden = false;
+}
+function gameOver() {
+  state = 'over';
+  const sc = Math.floor(G.score), isBest = sc > best;
+  if (isBest) { best = sc; store.set('best', best); }
+  syncBest();
+  ui.overWhy.textContent = 'Caught by your echo from ' + G.killer.lag.toFixed(1) + ' s ago';
+  ui.overHead.textContent = isBest ? 'New best' : 'Run over';
+  ui.oScore.textContent = sc;
+  ui.oTime.textContent = (G.deathFrame / FPS).toFixed(1) + 's';
+  ui.oShards.textContent = G.shardsGot;
+  ui.oEchoes.textContent = G.echoes.length;
+  showOnly(ui.over);
+  $('againBtn').focus({ preventScroll: true });
+}
+function pause() { if (state !== 'play') return; state = 'paused'; joy.active = false; keys.clear(); showOnly(ui.paused); }
+function resume() { if (state !== 'paused') return; state = 'play'; showOnly(null); }
+function toggleMute() { muted = !muted; store.set('muted', muted); syncMute(); if (!muted) ensureAudio(); }
+
+$('startBtn').addEventListener('click', startRun);
+$('againBtn').addEventListener('click', startRun);
+$('resumeBtn').addEventListener('click', resume);
+$('pauseBtn').addEventListener('click', () => state === 'play' ? pause() : resume());
+ui.muteBtn.addEventListener('click', toggleMute);
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k) && e.target.tagName !== 'BUTTON') e.preventDefault();
+  keys.add(k);
+  if ((k === ' ' || k === 'enter') && e.target.tagName !== 'BUTTON') {
+    if (state === 'title' || (state === 'over' && G.deadT > 1.2)) startRun();
+    else if (state === 'paused') resume();
+  }
+  if (k === 'p' || k === 'escape') { if (state === 'play') pause(); else if (state === 'paused') resume(); }
+  if (k === 'm') toggleMute();
+});
+addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+addEventListener('blur', () => { keys.clear(); pause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+cv.addEventListener('pointerdown', e => {
+  if (state !== 'play' || joy.active) return;
+  joy.active = true; joy.id = e.pointerId;
+  joy.bx = joy.kx = e.clientX; joy.by = joy.ky = e.clientY;
+  try { cv.setPointerCapture(e.pointerId); } catch {}
+  e.preventDefault();
+});
+cv.addEventListener('pointermove', e => {
+  if (!joy.active || e.pointerId !== joy.id) return;
+  joy.kx = e.clientX; joy.ky = e.clientY;
+  const dx = joy.kx - joy.bx, dy = joy.ky - joy.by, m = Math.hypot(dx, dy), lim = JOY_R * 1.5;
+  if (m > lim) { joy.bx = joy.kx - dx / m * lim; joy.by = joy.ky - dy / m * lim; } // base follows the thumb
+});
+const endJoy = e => { if (e.pointerId === joy.id) { joy.active = false; joy.id = null; } };
+cv.addEventListener('pointerup', endJoy);
+cv.addEventListener('pointercancel', endJoy);
+addEventListener('resize', resize);
+
+// ---- Loop -------------------------------------------------------------------
+let last = 0, acc = 0;
+function tick() {
+  step(G);
+  if (!G.alive) {
+    if (G.demo && G.deadT > 1.8) startDemo();
+    else if (state === 'play' && !G.demo && G.deadT > 0.9) gameOver();
+  }
+}
+function loop(now) {
+  const dt = last ? Math.min(0.1, (now - last) / 1000) : 0; last = now;
+  if (state !== 'paused') {
+    acc += dt; let n = 0;
+    while (acc >= STEP && n < 8) { tick(); acc -= STEP; n++; }
+    if (n === 8) acc = 0;
+  }
+  render(G); updateHud();
+  requestAnimationFrame(loop);
+}
+
+// Screenshot mode (#capture): fast-forward an autopilot run to ~46 s and draw one finished frame.
+async function bootCapture() {
+  try { await document.fonts.ready; } catch {}
+  state = 'play'; showOnly(null); ui.hud.hidden = false;
+  drawCapture();
+  // Resizing a canvas wipes it, so redraw the same deterministic frame after any resize.
+  let t = 0;
+  addEventListener('resize', () => { clearTimeout(t); t = setTimeout(drawCapture, 50); });
+}
+function drawCapture() {
+  resize();
+  const TARGET = 46 * FPS;
+  let bestSeed = 1, bestLen = -1;
+  for (let s = 1; s <= 60; s++) {
+    const g = newGame({ auto: true, seed: s * 7919 });
+    while (g.alive && g.frame < TARGET) step(g);
+    const len = g.alive ? TARGET : g.deathFrame;
+    if (len > bestLen) { bestLen = len; bestSeed = s * 7919; }
+    if (g.alive) break;
+  }
+  G = newGame({ auto: true, capture: true, seed: bestSeed }); fitView(G);
+  const stopAt = bestLen >= TARGET ? TARGET : Math.max(60, bestLen - 35);
+  while (G.frame < stopAt) { step(G); G.finalFrame = G.frame >= stopAt; if (G.frame > stopAt - 40) render(G); }
+  updateHud();
+  // Headless screenshots can miss an un-composited canvas; freeze the frame into an image.
+  let img = $('shot');
+  if (!img) { img = document.createElement('img'); img.id = 'shot'; img.alt = ''; img.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none'; cv.after(img); }
+  img.src = cv.toDataURL('image/png');
+  document.documentElement.dataset.captured = '1';
+}
+
+function init() {
+  resize(); syncBest(); syncMute();
+  if (CAPTURE) { bootCapture(); return; }
+  startDemo(); showOnly(ui.title);
+  requestAnimationFrame(loop);
+}
+
+try { window.claude?.hot?.snapshot?.(() => ({ best })); } catch {}
+const boot = data => { if (data && data.best > best) best = data.best | 0; init(); };
+if (window.claude?.hot?.ready) window.claude.hot.ready(boot);
+else boot(window.claude?.hot?.data ?? {});
+})();
+</script>
